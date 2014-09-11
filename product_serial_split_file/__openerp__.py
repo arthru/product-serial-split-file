@@ -24,7 +24,10 @@
     "version": "1.0",
     "author": "Akretion",
     "website": "http://www.akretion.com",
-    "depends": ["stock", 'mrp'],
+    "depends": [
+        "mrp",
+        "stock",
+    ],
     "category": "Generic Modules/Inventory Control",
     "license": "AGPL-3",
     "description": """

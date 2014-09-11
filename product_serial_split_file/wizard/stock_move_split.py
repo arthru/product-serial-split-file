@@ -33,13 +33,24 @@ class StockMoveSplit(orm.TransientModel):
             "per serial number (all for the same product)."),
     }
 
-    def split_lot(self, cr, uid, ids, context=None):
+    def split(self, cr, uid, ids, move_ids, context=None):
+        new_move = []
         for move_split in self.browse(cr, uid, ids, context=context):
             if move_split.prodlot_file:
-                self.split_from_file(cr, uid, move_split, context=context)
-        return super(StockMoveSplit, self).split_lot(
-            cr, uid, ids, context=context
+                new_move += self.split_from_file(
+                    cr, uid, move_split, context=context
+                )
+        new_move += super(StockMoveSplit, self).split(
+            cr, uid, ids, move_ids, context=context
         )
+        production_obj = self.pool.get('mrp.production')
+        production_ids = production_obj.search(
+            cr, uid, [('move_lines', 'in', move_ids)]
+        )
+        production_obj.write(
+            cr, uid, production_ids, {'move_lines': [(4, m) for m in new_move]}
+        )
+        return new_move
 
     def split_from_file(self, cr, uid, move_split, context=None):
         move_obj = self.pool['stock.move']
@@ -53,6 +64,7 @@ class StockMoveSplit(orm.TransientModel):
         move = move_obj.browse(cr, uid, move_ids, context=context)[0]
         if move.prodlot_id:
             raise orm.except_orm(_('This move already has a serial number'))
+        new_move_ids = []
         for prodlot in prodlot_seq:
             if move_split.use_exist:
                 prodlot_id = self.find_prodlot(
@@ -69,16 +81,23 @@ class StockMoveSplit(orm.TransientModel):
                 )
             if move.product_qty == 1.0:
                 move.write({'prodlot_id': prodlot_id})
-                return
-            move_obj.copy(
+                break
+            new_move_defaults = {
+                'product_qty': 1,
+                'prodlot_id': prodlot_id,
+                'state': move.state
+            }
+            new_move_id = move_obj.copy(
                 cr, uid, move.id,
-                {'product_qty': 1, 'prodlot_id': prodlot_id},
+                new_move_defaults,
                 context=context
             )
+            new_move_ids.append(new_move_id)
             move.write(
                 {'product_qty': move.product_qty - 1}
             )
-            move = move_obj.browse(cr, uid, move_ids, context=context)[0]
+            move = move_obj.browse(cr, uid, move_ids[0], context=context)
+        return new_move_ids
 
     def find_prodlot(self, cr, uid, prodlot, move, context=None):
         prodlot_obj = self.pool['stock.production.lot']
