@@ -54,7 +54,6 @@ class StockMoveSplit(orm.TransientModel):
 
     def split_from_file(self, cr, uid, move_split, context=None):
         move_obj = self.pool['stock.move']
-        prodlot_obj = self.pool['stock.production.lot']
 
         prodlots = base64.decodestring(move_split.prodlot_file).split('\n')
         prodlot_seq = [prodlot for prodlot in prodlots if prodlot]
@@ -66,19 +65,9 @@ class StockMoveSplit(orm.TransientModel):
             raise orm.except_orm(_('This move already has a serial number'))
         new_move_ids = []
         for prodlot in prodlot_seq:
-            if move_split.use_exist:
-                prodlot_id = self.find_prodlot(
-                    cr, uid, prodlot, move, context=context
-                )
-            else:
-                prodlot_vals = {
-                    'product_id': move.product_id.id,
-                    'name': prodlot,
-                    'company_id': move.company_id.id,
-                }
-                prodlot_id = prodlot_obj.create(
-                    cr, uid, prodlot_vals, context=context
-                )
+            prodlot_id = self.find_or_create_prodlot(
+                cr, uid, prodlot, move, context=context
+            )
             if move.product_qty == 1.0:
                 move.write({'prodlot_id': prodlot_id})
                 break
@@ -99,27 +88,39 @@ class StockMoveSplit(orm.TransientModel):
             move = move_obj.browse(cr, uid, move_ids[0], context=context)
         return new_move_ids
 
+    def find_or_create_prodlot(self, cr, uid, prodlot, move, context=None):
+        prodlot_obj = self.pool['stock.production.lot']
+        prodlot_id = self.find_prodlot(
+            cr, uid, prodlot, move, context=context
+        )
+        if prodlot_id:
+            return prodlot_id
+        prodlot_vals = {
+            'product_id': move.product_id.id,
+            'name': prodlot,
+            'company_id': move.company_id.id,
+        }
+        return prodlot_obj.create(
+            cr, uid, prodlot_vals, context=context
+        )
+
     def find_prodlot(self, cr, uid, prodlot, move, context=None):
         prodlot_obj = self.pool['stock.production.lot']
         lot_ids = prodlot_obj.search(
-            cr, uid, [('name', '=', prodlot)], limit=1, context=context
+            cr, uid,
+            [
+                ('name', '=', prodlot),
+                ('product_id', '=', move.product_id.id)
+            ],
+            limit=1,
+            context=context
         )
         if not lot_ids:
-            raise orm.except_orm(
-                _('Invalid Serial Number'),
-                _('Serial Number %s not found.') % prodlot)
+            return None
 
         ctx = context.copy()
         ctx['location_id'] = move.location_id.id
         prodlot = self.pool.get('stock.production.lot').browse(
             cr, uid, lot_ids[0], ctx
         )
-
-        if prodlot.product_id != move.product_id:
-            raise orm.except_orm(
-                _('Invalid Serial Number'),
-                _('Serial Number %s exists but not for product %s.')
-                % (prodlot, move.product_id.name)
-            )
-
         return lot_ids[0]

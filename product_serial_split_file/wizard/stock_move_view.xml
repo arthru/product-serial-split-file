@@ -10,6 +10,9 @@
         <field name="use_exist" position="after">
             <field name="prodlot_file" />
         </field>
+        <field name="use_exist" position="attributes">
+            <attribute name="invisible">1</attribute>
+        </field>
     </field>
 </record>
 
