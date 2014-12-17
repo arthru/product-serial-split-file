@@ -98,7 +98,6 @@ class StockMoveSplit(orm.TransientModel):
         prodlot_vals = {
             'product_id': move.product_id.id,
             'name': prodlot,
-            'company_id': move.company_id.id,
         }
         return prodlot_obj.create(
             cr, uid, prodlot_vals, context=context
