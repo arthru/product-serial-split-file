@@ -62,7 +62,10 @@ class StockMoveSplit(orm.TransientModel):
         assert len(move_ids) == 1
         move = move_obj.browse(cr, uid, move_ids, context=context)[0]
         if move.prodlot_id:
-            raise orm.except_orm(_('This move already has a serial number'))
+            raise orm.except_orm(
+                _('Serial split error'),
+                _('This move already has a serial number')
+            )
         new_move_ids = []
         for prodlot in prodlot_seq:
             prodlot_id = self.find_or_create_prodlot(
