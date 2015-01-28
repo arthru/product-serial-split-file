@@ -20,7 +20,6 @@
 import base64
 
 from openerp.osv import orm, fields
-from openerp.tools.translate import _
 
 
 class StockMoveSplit(orm.TransientModel):
@@ -61,68 +60,4 @@ class StockMoveSplit(orm.TransientModel):
         move_ids = context.get('active_ids')
         assert len(move_ids) == 1
         move = move_obj.browse(cr, uid, move_ids, context=context)[0]
-        if move.prodlot_id:
-            raise orm.except_orm(
-                _('Serial split error'),
-                _('This move already has a serial number')
-            )
-        new_move_ids = []
-        for prodlot in prodlot_seq:
-            prodlot_id = self.find_or_create_prodlot(
-                cr, uid, prodlot, move, context=context
-            )
-            if move.product_qty == 1.0:
-                move.write({'prodlot_id': prodlot_id})
-                break
-            new_move_defaults = {
-                'product_qty': 1,
-                'prodlot_id': prodlot_id,
-                'state': move.state
-            }
-            new_move_id = move_obj.copy(
-                cr, uid, move.id,
-                new_move_defaults,
-                context=context
-            )
-            new_move_ids.append(new_move_id)
-            move.write(
-                {'product_qty': move.product_qty - 1}
-            )
-            move = move_obj.browse(cr, uid, move_ids[0], context=context)
-        return new_move_ids
-
-    def find_or_create_prodlot(self, cr, uid, prodlot, move, context=None):
-        prodlot_obj = self.pool['stock.production.lot']
-        prodlot_id = self.find_prodlot(
-            cr, uid, prodlot, move, context=context
-        )
-        if prodlot_id:
-            return prodlot_id
-        prodlot_vals = {
-            'product_id': move.product_id.id,
-            'name': prodlot,
-        }
-        return prodlot_obj.create(
-            cr, uid, prodlot_vals, context=context
-        )
-
-    def find_prodlot(self, cr, uid, prodlot, move, context=None):
-        prodlot_obj = self.pool['stock.production.lot']
-        lot_ids = prodlot_obj.search(
-            cr, uid,
-            [
-                ('name', '=', prodlot),
-                ('product_id', '=', move.product_id.id)
-            ],
-            limit=1,
-            context=context
-        )
-        if not lot_ids:
-            return None
-
-        ctx = context.copy()
-        ctx['location_id'] = move.location_id.id
-        prodlot = self.pool.get('stock.production.lot').browse(
-            cr, uid, lot_ids[0], ctx
-        )
-        return lot_ids[0]
+        return move.split(prodlot_seq)
