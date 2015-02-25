@@ -31,7 +31,8 @@ class StockMove(orm.Model):
             new_move_defaults = {
                 'product_qty': 1,
                 'prodlot_id': prodlot_id,
-                'state': move.state
+                'state': move.state,
+                'product_uom': move.product_uom.id,
             }
             new_move_id = self.copy(
                 cr, uid, move.id, new_move_defaults, context=context
