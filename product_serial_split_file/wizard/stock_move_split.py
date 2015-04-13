@@ -48,7 +48,8 @@ class StockMoveSplit(orm.TransientModel):
                 quantity_rest = move.product_qty
                 uos_qty_rest = move.product_uos_qty
                 new_move = []
-                lines = [l for l in data.line_ids if l]
+                lines = [l for l in data.line_exist_ids if l]
+                lines += [l for l in data.line_ids if l]
                 total_move_qty = 0.0
                 for line in lines:
                     quantity = line.quantity
